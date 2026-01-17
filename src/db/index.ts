@@ -3,15 +3,34 @@ import Database from 'better-sqlite3';
 import * as schema from './schema';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
+
+// Determine database directory based on environment
+// In serverless environments (Vercel), use /tmp directory (writable in serverless)
+// In local development, use ./data directory
+// Note: /tmp is ephemeral in serverless - data may be lost on cold starts
+// For production, consider using a persistent database service (PostgreSQL, etc.)
+const isServerless = !!(
+  process.env.VERCEL || 
+  process.env.AWS_LAMBDA_FUNCTION_NAME || 
+  process.env.VERCEL_ENV ||
+  (typeof process.env.VERCEL_REGION === 'string')
+);
+const dataDir = isServerless 
+  ? path.join(os.tmpdir(), 'mural-pay-demo')
+  : path.join(process.cwd(), 'data');
 
 // Ensure data directory exists
-const dataDir = path.join(process.cwd(), 'data');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
 // Database file path
-const dbPath = process.env.DATABASE_URL?.replace('file:', '') || './data/openDestiny.db';
+// Use DATABASE_URL if provided, otherwise use appropriate directory
+let dbPath = process.env.DATABASE_URL?.replace('file:', '');
+if (!dbPath) {
+  dbPath = path.join(dataDir, 'openDestiny.db');
+}
 
 // Create SQLite database connection
 const sqlite = new Database(dbPath);

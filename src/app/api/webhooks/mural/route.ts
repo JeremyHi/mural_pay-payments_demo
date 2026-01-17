@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/db';
 import { orders, payments, payouts } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { verifyWebhookSignature, createPayoutRequest, executePayoutRequest } from '@/lib/mural';
 
 // Webhook event types from Mural Pay
@@ -210,7 +210,7 @@ async function handlePayoutRequest(event: WebhookEvent) {
   console.log('Payout status updated:', payout.id, '->', newStatus);
 }
 
-export async function initiatePayout(paymentId: string, usdcAmount: number, orderId: string) {
+async function initiatePayout(paymentId: string, usdcAmount: number, orderId: string) {
   const now = new Date();
 
   // Create payout record first

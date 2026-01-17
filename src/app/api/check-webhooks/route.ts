@@ -46,7 +46,20 @@ export async function GET() {
   }
 }
 
-function generateRecommendations(webhooks: any[]) {
+interface WebhookDetail {
+  id: string;
+  url: string;
+  status: string;
+  eventCategories: string[];
+  createdAt: string;
+  updatedAt: string;
+  isLocalhost: boolean;
+  isTunnel: boolean;
+  isActive: boolean;
+  hasRequiredEvents: boolean;
+}
+
+function generateRecommendations(webhooks: WebhookDetail[]) {
   const recommendations: string[] = [];
 
   if (webhooks.length === 0) {

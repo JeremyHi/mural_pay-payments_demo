@@ -193,16 +193,16 @@ async function handlePayoutRequest(event: WebhookEvent) {
   // API statuses: AWAITING_EXECUTION, CANCELED, PENDING, EXECUTED, FAILED
   // Fiat payout statuses: created, pending, on-hold, completed, canceled, refundInProgress, refunded
   let newStatus: 'created' | 'pending' | 'executed' | 'completed' | 'failed' = payout.status as 'created' | 'pending' | 'executed' | 'completed' | 'failed';
-  
+
   const statusLower = status?.toLowerCase() || '';
-  
+
   // Start payment fetch early if we might need it (for completed status)
   const paymentPromise = statusLower === 'completed' || statusLower === 'success'
     ? db.query.payments.findFirst({
-        where: eq(payments.id, payout.paymentId),
-      })
+      where: eq(payments.id, payout.paymentId),
+    })
     : Promise.resolve(null);
-  
+
   switch (statusLower) {
     case 'awaiting_execution':
       newStatus = 'created';
@@ -239,26 +239,26 @@ async function handlePayoutRequest(event: WebhookEvent) {
   // Extract exchange rate and COP amount from API response
   let exchangeRate = payout.exchangeRate;
   let copAmount = payout.copAmount;
-  
+
   const payoutRequest = await payoutDetailsPromise;
   if (payoutRequest) {
     const payoutDetails = payoutRequest.payouts?.[0];
     const fiatPayout = payoutDetails?.details?.type === 'fiat' ? payoutDetails.details : null;
-    
+
     if (fiatPayout) {
       exchangeRate = fiatPayout.exchangeRate ? fiatPayout.exchangeRate.toString() : exchangeRate;
-      copAmount = fiatPayout.fiatAmount?.fiatCurrencyCode === 'COP' 
-        ? fiatPayout.fiatAmount.fiatAmount.toString() 
+      copAmount = fiatPayout.fiatAmount?.fiatCurrencyCode === 'COP'
+        ? fiatPayout.fiatAmount.fiatAmount.toString()
         : copAmount;
     }
   }
 
   await db.update(payouts)
-    .set({ 
-      status: newStatus, 
+    .set({
+      status: newStatus,
       exchangeRate,
       copAmount,
-      updatedAt: now 
+      updatedAt: now
     })
     .where(eq(payouts.id, payout.id));
 
@@ -311,11 +311,11 @@ async function initiatePayout(paymentId: string, usdcAmount: number, orderId: st
     // Extract payout details from the first payout (we only create one)
     const payoutDetails = executedPayout.payouts?.[0];
     const fiatPayout = payoutDetails?.details?.type === 'fiat' ? payoutDetails.details : null;
-    
+
     // Extract exchange rate, COP amount, and other details
     const exchangeRate = fiatPayout?.exchangeRate;
-    const copAmount = fiatPayout?.fiatAmount?.fiatCurrencyCode === 'COP' 
-      ? fiatPayout.fiatAmount.fiatAmount 
+    const copAmount = fiatPayout?.fiatAmount?.fiatCurrencyCode === 'COP'
+      ? fiatPayout.fiatAmount.fiatAmount
       : null;
 
     // Map MuralPay status to our internal status

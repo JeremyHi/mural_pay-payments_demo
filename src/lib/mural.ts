@@ -220,7 +220,8 @@ export async function createPayoutRequest(
       method: 'POST',
       body: JSON.stringify(payload),
     },
-    true // Use transfer API key for payouts
+    true, // Use transfer API key for payouts
+    true  // Include transfer-api-key header as required by API
   );
 }
 

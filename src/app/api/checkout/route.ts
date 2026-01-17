@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       createdAt: now,
       updatedAt: now,
       status: 'pending',
-      totalUsdc: roundedTotal,
+      totalUsdc: roundedTotal.toString(),
       items: JSON.stringify(items),
     });
 

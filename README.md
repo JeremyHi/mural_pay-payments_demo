@@ -15,7 +15,7 @@ A demo e-commerce storefront that accepts USDC payments on Polygon via Mural Pay
 
 - **Frontend**: Next.js 14, React, Tailwind CSS
 - **Backend**: Next.js API Routes
-- **Database**: SQLite with Drizzle ORM
+- **Database**: Supabase (PostgreSQL) with Drizzle ORM
 - **Payments**: Mural Pay API (USDC on Polygon)
 
 ## Getting Started
@@ -24,6 +24,7 @@ A demo e-commerce storefront that accepts USDC payments on Polygon via Mural Pay
 
 - Node.js 18+
 - Mural Pay sandbox account with API credentials
+- Supabase account (free tier works for testing)
 
 ### Installation
 
@@ -43,8 +44,16 @@ npm install
 cp .env.example .env.local
 ```
 
-4. Edit `.env.local` with your Mural Pay credentials:
+4. Set up Supabase database:
+   - Create a project at [supabase.com](https://supabase.com)
+   - Go to Project Settings > Database
+   - Copy the connection string (Connection Pooling mode)
+   - Or use the direct connection string format:
+     `postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres`
+
+5. Edit `.env.local` with your credentials:
 ```env
+# Mural Pay API Configuration
 MURAL_API_KEY=your-api-key
 MURAL_TRANSFER_API_KEY=your-transfer-api-key
 MURAL_ORGANIZATION_ID=your-org-id
@@ -52,6 +61,13 @@ MURAL_ACCOUNT_ID=your-account-id
 MURAL_COUNTERPARTY_ID=your-counterparty-id
 MURAL_PAYOUT_METHOD_ID=your-payout-method-id
 MURAL_API_BASE_URL=https://api-staging.muralpay.com
+
+# Supabase Database
+DATABASE_URL=postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
+
+# Webhook Security (optional)
+WEBHOOK_SECRET=your-webhook-secret
+WEBHOOK_PUBLIC_KEY=your-webhook-public-key
 ```
 
 5. Run the development server:
@@ -83,8 +99,8 @@ src/
 ├── contexts/
 │   └── CartContext.tsx
 ├── db/
-│   ├── schema.ts              # Drizzle schema
-│   └── index.ts               # Database client
+│   ├── schema.ts              # Drizzle PostgreSQL schema
+│   └── index.ts               # Supabase/PostgreSQL client
 └── lib/
     ├── mural.ts               # Mural Pay API client
     ├── products.ts            # Product data

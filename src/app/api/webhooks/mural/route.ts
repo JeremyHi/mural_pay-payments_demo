@@ -105,8 +105,9 @@ async function handleBalanceActivity(event: WebhookEvent) {
 
       // Find order with matching amount (within tolerance)
       // Prioritize most recent orders first
+      // Note: PostgreSQL numeric fields are returned as strings, so convert for comparison
       const pendingOrder = allPending.find(
-        order => Math.abs(order.totalUsdc - amount) < tolerance
+        order => Math.abs(Number(order.totalUsdc) - amount) < tolerance
       );
 
       if (!pendingOrder) {
@@ -127,7 +128,7 @@ async function handleBalanceActivity(event: WebhookEvent) {
         createdAt: now,
         muralTransactionId: transactionId || null,
         transactionHash: transactionHash || null,
-        amount,
+        amount: amount.toString(),
         status: 'confirmed',
       });
 
@@ -220,7 +221,7 @@ async function initiatePayout(paymentId: string, usdcAmount: number, orderId: st
     paymentId,
     createdAt: now,
     updatedAt: now,
-    usdcAmount,
+    usdcAmount: usdcAmount.toString(),
     status: 'created',
   });
 

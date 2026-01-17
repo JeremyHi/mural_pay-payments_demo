@@ -3,6 +3,9 @@ import { db } from '@/db';
 import { orders, payments, payouts } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
+// Mark as dynamic to prevent static generation
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ orderId: string }> }
@@ -10,10 +13,17 @@ export async function GET(
   try {
     const { orderId } = await params;
 
-    // Get order
-    const order = await db.query.orders.findFirst({
+    // Start fetching order and payment in parallel (payment doesn't depend on order data, just orderId)
+    const orderPromise = db.query.orders.findFirst({
       where: eq(orders.id, orderId),
     });
+    
+    const paymentPromise = db.query.payments.findFirst({
+      where: eq(payments.orderId, orderId),
+    });
+
+    // Await both in parallel
+    const [order, payment] = await Promise.all([orderPromise, paymentPromise]);
 
     if (!order) {
       return NextResponse.json(
@@ -22,12 +32,7 @@ export async function GET(
       );
     }
 
-    // Get payment for this order
-    const payment = await db.query.payments.findFirst({
-      where: eq(payments.orderId, orderId),
-    });
-
-    // Get payout if payment exists
+    // Get payout if payment exists (payout depends on payment.id)
     let payout = null;
     if (payment) {
       payout = await db.query.payouts.findFirst({

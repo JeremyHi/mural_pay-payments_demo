@@ -3,6 +3,9 @@ import { db } from '@/db';
 import { orders, payments, payouts } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 
+// Mark as dynamic to prevent static generation
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     // Get all payouts with their related payment and order info

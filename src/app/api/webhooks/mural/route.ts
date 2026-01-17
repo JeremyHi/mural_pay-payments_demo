@@ -201,7 +201,7 @@ async function handlePayoutRequest(event: WebhookEvent) {
   // Map MuralPay API status to our internal status
   // API statuses: AWAITING_EXECUTION, CANCELED, PENDING, EXECUTED, FAILED
   // Fiat payout statuses: created, pending, on-hold, completed, canceled, refundInProgress, refunded
-  let newStatus: 'created' | 'pending' | 'executed' | 'completed' | 'failed' = payout.status as any;
+  let newStatus: 'created' | 'pending' | 'executed' | 'completed' | 'failed' = payout.status as 'created' | 'pending' | 'executed' | 'completed' | 'failed';
   
   const statusLower = status?.toLowerCase() || '';
   
@@ -336,7 +336,7 @@ async function initiatePayout(paymentId: string, usdcAmount: number, orderId: st
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
     const errorDetails = error instanceof Error && 'response' in error
-      ? JSON.stringify((error as any).response, null, 2)
+      ? JSON.stringify((error as Error & { response?: unknown }).response, null, 2)
       : undefined;
 
     console.error('Payout initiation failed:', {

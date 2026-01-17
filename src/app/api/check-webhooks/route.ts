@@ -29,14 +29,14 @@ export async function GET() {
           id: details.id,
           url: details.url,
           status: details.status,
-          eventCategories: details.eventCategories,
+          eventCategories: details.categories,
           createdAt: details.createdAt,
           updatedAt: details.updatedAt,
           isLocalhost: details.url.includes('localhost') || details.url.includes('127.0.0.1'),
           isTunnel: details.url.includes('ngrok') || details.url.includes('localtunnel') || details.url.includes('loca.lt'),
           isActive: details.status === 'ACTIVE',
           hasRequiredEvents: ['MURAL_ACCOUNT_BALANCE_ACTIVITY', 'PAYOUT_REQUEST'].every(
-            cat => details.eventCategories.includes(cat)
+            cat => details.categories.includes(cat)
           ),
         };
       })

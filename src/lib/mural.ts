@@ -271,6 +271,40 @@ export async function searchTransactions(
   );
 }
 
+// Webhook types
+export interface MuralWebhook {
+  id: string;
+  version: number;
+  url: string;
+  publicKey: string;
+  categories: string[];
+  status: 'DISABLED' | 'ACTIVE';
+  createdAt: string;
+  updatedAt: string;
+}
+
+// List all webhooks for the organization
+export async function listWebhooks(): Promise<{ results: MuralWebhook[] }> {
+  const webhooks = await muralRequest<MuralWebhook[]>(
+    '/api/webhooks',
+    {
+      method: 'GET',
+    }
+  );
+  // API returns array directly, but route expects { results: [...] }
+  return { results: webhooks };
+}
+
+// Get a specific webhook by ID
+export async function getWebhook(webhookId: string): Promise<MuralWebhook> {
+  return muralRequest<MuralWebhook>(
+    `/api/webhooks/${webhookId}`,
+    {
+      method: 'GET',
+    }
+  );
+}
+
 // Verify webhook signature using ECDSA with public key
 export function verifyWebhookSignature(
   payload: string,

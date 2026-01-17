@@ -1,36 +1,124 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Open Destiny - Fortune Cookie Shop
+
+A demo e-commerce storefront that accepts USDC payments on Polygon via Mural Pay, with automatic conversion and withdrawal to Colombian Pesos (COP).
+
+## Features
+
+- Browse and purchase 8 different fortune cookie products
+- Shopping cart with real-time updates
+- Checkout with USDC payment on Polygon Amoy testnet
+- Automatic payment detection via Mural Pay webhooks
+- Automatic COP conversion and bank withdrawal
+- Merchant dashboard to track payments and payouts
+
+## Tech Stack
+
+- **Frontend**: Next.js 14, React, Tailwind CSS
+- **Backend**: Next.js API Routes
+- **Database**: SQLite with Drizzle ORM
+- **Payments**: Mural Pay API (USDC on Polygon)
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
+- Node.js 18+
+- Mural Pay sandbox account with API credentials
+
+### Installation
+
+1. Clone the repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repo-url>
+cd mural_pay-payments_demo
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Copy the environment template and configure:
+```bash
+cp .env.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Edit `.env.local` with your Mural Pay credentials:
+```env
+MURAL_API_KEY=your-api-key
+MURAL_TRANSFER_API_KEY=your-transfer-api-key
+MURAL_ORGANIZATION_ID=your-org-id
+MURAL_ACCOUNT_ID=your-account-id
+MURAL_COUNTERPARTY_ID=your-counterparty-id
+MURAL_PAYOUT_METHOD_ID=your-payout-method-id
+MURAL_API_BASE_URL=https://api-staging.muralpay.com
+```
 
-## Learn More
+5. Run the development server:
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+6. Open [http://localhost:3000](http://localhost:3000)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── checkout/          # Create orders
+│   │   ├── payment-status/    # Check order status
+│   │   ├── webhooks/mural/    # Mural Pay webhooks
+│   │   └── merchant/          # Merchant APIs
+│   ├── merchant/              # Merchant dashboard
+│   ├── layout.tsx             # Root layout
+│   └── page.tsx               # Homepage
+├── components/
+│   ├── Navbar.tsx
+│   ├── ProductCard.tsx
+│   ├── CartModal.tsx
+│   ├── CheckoutModal.tsx
+│   └── PaymentStatus.tsx
+├── contexts/
+│   └── CartContext.tsx
+├── db/
+│   ├── schema.ts              # Drizzle schema
+│   └── index.ts               # Database client
+└── lib/
+    ├── mural.ts               # Mural Pay API client
+    ├── products.ts            # Product data
+    └── types.ts               # TypeScript types
+```
 
-## Deploy on Vercel
+## Documentation
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+See the `/docs` folder for detailed documentation:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [PRD.md](docs/PRD.md) - Product Requirements Document
+- [arch_design.md](docs/arch_design.md) - Architecture Design
+- [implementation_plan.md](docs/implementation_plan.md) - Implementation Plan
+
+## Payment Flow
+
+1. Customer adds items to cart
+2. Customer proceeds to checkout
+3. App creates order and displays Mural wallet address
+4. Customer sends USDC from their wallet
+5. Mural Pay detects payment and sends webhook
+6. App confirms payment and initiates COP payout
+7. Funds are converted and sent to merchant's bank
+
+## Testing
+
+To test the payment flow:
+
+1. Get testnet USDC from a Polygon Amoy faucet
+2. Add items to cart and checkout
+3. Send the exact USDC amount to the displayed wallet
+4. Watch the payment confirmation appear
+5. Check the merchant dashboard for payout status
+
+## License
+
+MIT

@@ -27,9 +27,21 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
+
+# database
+/data/
+*.db
+*.db-journal
+
+# drizzle
+/drizzle/
 
 # vercel
 .vercel
+
+# claude
+.claude/
 
 # typescript
 *.tsbuildinfo

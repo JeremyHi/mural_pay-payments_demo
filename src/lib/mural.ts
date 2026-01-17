@@ -243,7 +243,7 @@ export async function executePayoutRequest(
         exchangeRateToleranceMode,
       }),
     },
-    true, // Use transfer API key
+    false, // Use MURAL_API_KEY for Bearer token (not transfer key)
     true // Include transfer-api-key header as required by API
   );
 }
@@ -253,7 +253,7 @@ export async function getPayoutRequest(payoutRequestId: string): Promise<MuralPa
   return muralRequest<MuralPayoutRequest>(
     `/api/payouts/payout/${payoutRequestId}`,
     {},
-    true
+    false // Use MURAL_API_KEY for Bearer token
   );
 }
 

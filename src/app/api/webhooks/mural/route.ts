@@ -166,35 +166,60 @@ async function handlePayoutRequest(event: WebhookEvent) {
     return;
   }
 
+  // Log full webhook payload for debugging
+  console.log('Payout webhook payload:', JSON.stringify(event.payload, null, 2));
+
   // Find the payout record
   const payout = await db.query.payouts.findFirst({
     where: eq(payouts.muralPayoutRequestId, payoutRequestId),
   });
 
   if (!payout) {
-    console.log('No payout found for request ID:', payoutRequestId);
+    console.log('No payout found for request ID:', payoutRequestId, '- This may be a test payout created externally');
     return;
   }
 
   const now = new Date();
 
-  // Start fetching payout details from API early (non-blocking for status mapping)
-  const payoutDetailsPromise = (async () => {
-    try {
-      const { getPayoutRequest } = await import('@/lib/mural');
-      return await getPayoutRequest(payoutRequestId);
-    } catch (error) {
-      console.error('Error fetching payout details from API:', error);
-      return null;
+  // Fetch payout details from API to get accurate status (webhook payload may not have status)
+  let payoutRequest;
+  try {
+    const { getPayoutRequest } = await import('@/lib/mural');
+    payoutRequest = await getPayoutRequest(payoutRequestId);
+  } catch (error) {
+    console.error('Error fetching payout details from API:', error);
+    // If API fetch fails, try to use webhook payload status
+    payoutRequest = null;
+  }
+
+  // Extract exchange rate and COP amount from API response
+  let exchangeRate = payout.exchangeRate;
+  let copAmount = payout.copAmount;
+  let apiStatus: string | undefined;
+
+  if (payoutRequest) {
+    // Use API response status as source of truth
+    apiStatus = payoutRequest.status;
+    
+    const payoutDetails = payoutRequest.payouts?.[0];
+    const fiatPayout = payoutDetails?.details?.type === 'fiat' ? payoutDetails.details : null;
+
+    if (fiatPayout) {
+      exchangeRate = fiatPayout.exchangeRate ? fiatPayout.exchangeRate.toString() : exchangeRate;
+      copAmount = fiatPayout.fiatAmount?.fiatCurrencyCode === 'COP'
+        ? fiatPayout.fiatAmount.fiatAmount.toString()
+        : copAmount;
     }
-  })();
+  }
+
+  // Prefer API status over webhook payload status (API is source of truth)
+  const statusToUse = apiStatus || status;
+  const statusLower = statusToUse?.toLowerCase() || '';
 
   // Map MuralPay API status to our internal status
   // API statuses: AWAITING_EXECUTION, CANCELED, PENDING, EXECUTED, FAILED
   // Fiat payout statuses: created, pending, on-hold, completed, canceled, refundInProgress, refunded
   let newStatus: 'created' | 'pending' | 'executed' | 'completed' | 'failed' = payout.status as 'created' | 'pending' | 'executed' | 'completed' | 'failed';
-
-  const statusLower = status?.toLowerCase() || '';
 
   // Start payment fetch early if we might need it (for completed status)
   const paymentPromise = statusLower === 'completed' || statusLower === 'success'
@@ -212,8 +237,19 @@ async function handlePayoutRequest(event: WebhookEvent) {
       break;
     case 'executed':
       // EXECUTED means blockchain transaction completed, but fiat payout may still be processing
-      // We'll check individual payout status via webhook payload if available
-      newStatus = 'executed';
+      // Check individual payout status from API response for more detail
+      if (payoutRequest?.payouts?.[0]?.details?.type === 'fiat') {
+        const fiatStatus = payoutRequest.payouts[0].details.fiatPayoutStatus?.type;
+        if (fiatStatus === 'completed') {
+          newStatus = 'completed';
+        } else if (fiatStatus === 'pending' || fiatStatus === 'on-hold') {
+          newStatus = 'pending';
+        } else {
+          newStatus = 'executed'; // Blockchain executed, fiat still processing
+        }
+      } else {
+        newStatus = 'executed';
+      }
       break;
     case 'completed':
     case 'success':
@@ -232,25 +268,21 @@ async function handlePayoutRequest(event: WebhookEvent) {
       newStatus = 'failed';
       break;
     default:
-      // Keep existing status if we don't recognize the new status
-      console.log('Unknown payout status:', status);
-  }
-
-  // Extract exchange rate and COP amount from API response
-  let exchangeRate = payout.exchangeRate;
-  let copAmount = payout.copAmount;
-
-  const payoutRequest = await payoutDetailsPromise;
-  if (payoutRequest) {
-    const payoutDetails = payoutRequest.payouts?.[0];
-    const fiatPayout = payoutDetails?.details?.type === 'fiat' ? payoutDetails.details : null;
-
-    if (fiatPayout) {
-      exchangeRate = fiatPayout.exchangeRate ? fiatPayout.exchangeRate.toString() : exchangeRate;
-      copAmount = fiatPayout.fiatAmount?.fiatCurrencyCode === 'COP'
-        ? fiatPayout.fiatAmount.fiatAmount.toString()
-        : copAmount;
-    }
+      // If no status provided, check API response for fiat payout status
+      if (payoutRequest?.payouts?.[0]?.details?.type === 'fiat') {
+        const fiatStatus = payoutRequest.payouts[0].details.fiatPayoutStatus?.type;
+        if (fiatStatus === 'completed') {
+          newStatus = 'completed';
+        } else if (fiatStatus === 'pending' || fiatStatus === 'on-hold') {
+          newStatus = 'pending';
+        } else if (fiatStatus === 'refunded' || fiatStatus === 'refundInProgress') {
+          newStatus = 'failed';
+        }
+        // If fiatStatus is 'created', keep existing status or set to pending
+      }
+      if (!statusToUse) {
+        console.log('No status in webhook payload or API response for payout:', payoutRequestId);
+      }
   }
 
   await db.update(payouts)
@@ -265,7 +297,9 @@ async function handlePayoutRequest(event: WebhookEvent) {
   console.log('Payout status updated:', payout.id, '->', newStatus, {
     exchangeRate,
     copAmount,
-    muralStatus: status,
+    webhookStatus: status,
+    apiStatus: apiStatus,
+    finalStatus: statusToUse,
   });
 }
 

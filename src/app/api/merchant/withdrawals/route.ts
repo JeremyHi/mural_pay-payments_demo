@@ -28,9 +28,10 @@ export async function GET() {
           orderId: order?.id || 'unknown',
           paymentId: payout.paymentId,
           createdAt: payout.createdAt.toISOString(),
-          usdcAmount: payout.usdcAmount,
-          copAmount: payout.copAmount,
-          exchangeRate: payout.exchangeRate,
+          // Convert numeric strings to numbers for API response
+          usdcAmount: Number(payout.usdcAmount),
+          copAmount: payout.copAmount ? Number(payout.copAmount) : null,
+          exchangeRate: payout.exchangeRate ? Number(payout.exchangeRate) : null,
           status: payout.status,
           muralPayoutRequestId: payout.muralPayoutRequestId,
         };

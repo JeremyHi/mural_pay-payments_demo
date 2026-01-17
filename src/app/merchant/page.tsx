@@ -65,8 +65,9 @@ export default function MerchantDashboard() {
   }, [fetchWithdrawals]);
 
   // Memoize expensive calculations
+  // Note: usdcAmount comes from API as number, but ensure it's treated as number
   const totalUsdcReceived = useMemo(
-    () => withdrawals.reduce((sum, w) => sum + w.usdcAmount, 0),
+    () => withdrawals.reduce((sum, w) => sum + (typeof w.usdcAmount === 'number' ? w.usdcAmount : Number(w.usdcAmount)), 0),
     [withdrawals]
   );
 

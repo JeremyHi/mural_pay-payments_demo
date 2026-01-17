@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       orderId,
       walletAddress,
-      totalUsdc: roundedTotal,
+      totalUsdc: roundedTotal, // Already a number, no conversion needed
       status: 'pending',
     });
   } catch (error) {

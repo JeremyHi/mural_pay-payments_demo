@@ -40,14 +40,13 @@ fi
 
 echo ""
 
-# Check database
-echo "3. Checking database..."
-if [ -f "data/openDestiny.db" ]; then
-    echo "   ✅ Database file exists"
-    PENDING_ORDERS=$(sqlite3 data/openDestiny.db "SELECT COUNT(*) FROM orders WHERE status='pending';" 2>/dev/null)
-    echo "   📊 Pending orders: $PENDING_ORDERS"
+# Check database connection
+echo "3. Checking database connection..."
+if [ -n "$DATABASE_URL" ]; then
+    echo "   ✅ DATABASE_URL is set"
+    echo "   📊 Database: Supabase (PostgreSQL)"
 else
-    echo "   ⚠️  Database file not found"
+    echo "   ⚠️  DATABASE_URL not set - database operations will fail"
 fi
 
 echo ""

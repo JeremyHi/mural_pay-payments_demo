@@ -38,12 +38,13 @@ export async function GET(
     return NextResponse.json({
       orderId: order.id,
       orderStatus: order.status,
-      totalUsdc: order.totalUsdc,
+      // Convert numeric string to number for API response
+      totalUsdc: Number(order.totalUsdc),
       payment: payment
         ? {
             id: payment.id,
             status: payment.status,
-            amount: payment.amount,
+            amount: Number(payment.amount),
             transactionHash: payment.transactionHash,
           }
         : null,
@@ -51,9 +52,9 @@ export async function GET(
         ? {
             id: payout.id,
             status: payout.status,
-            usdcAmount: payout.usdcAmount,
-            copAmount: payout.copAmount,
-            exchangeRate: payout.exchangeRate,
+            usdcAmount: Number(payout.usdcAmount),
+            copAmount: payout.copAmount ? Number(payout.copAmount) : null,
+            exchangeRate: payout.exchangeRate ? Number(payout.exchangeRate) : null,
           }
         : null,
     });

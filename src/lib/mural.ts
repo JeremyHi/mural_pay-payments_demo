@@ -124,8 +124,9 @@ async function muralRequest<T>(
     ...(options.headers as Record<string, string>),
   };
 
-  // Add transfer-api-key header if required (for execute endpoint)
-  if (includeTransferApiKeyHeader && useTransferKey) {
+  // Add transfer-api-key header if required (for create and execute payout endpoints)
+  // Note: For create endpoint, we use MURAL_API_KEY for Bearer but still need transfer-api-key header
+  if (includeTransferApiKeyHeader) {
     headers['transfer-api-key'] = MURAL_TRANSFER_API_KEY;
   }
 
@@ -214,14 +215,16 @@ export async function createPayoutRequest(
     ],
   };
 
+  // Use MURAL_API_KEY for Bearer token, but include transfer-api-key header
+  // The API requires: Bearer token = MURAL_API_KEY, transfer-api-key header = MURAL_TRANSFER_API_KEY
   return muralRequest<MuralPayoutRequest>(
     '/api/payouts/payout',
     {
       method: 'POST',
       body: JSON.stringify(payload),
     },
-    true, // Use transfer API key for payouts
-    true  // Include transfer-api-key header as required by API
+    false, // Use MURAL_API_KEY for Bearer token (not transfer key)
+    true   // Include transfer-api-key header with MURAL_TRANSFER_API_KEY
   );
 }
 

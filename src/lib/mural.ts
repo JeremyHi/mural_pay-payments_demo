@@ -22,22 +22,72 @@ export interface MuralAccount {
   };
 }
 
+// Detailed payout request response matching MuralPay API
 export interface MuralPayoutRequest {
   id: string;
-  status: string;
   createdAt: string;
   updatedAt: string;
+  sourceAccountId: string;
+  transactionHash?: string;
   memo?: string;
+  status: 'AWAITING_EXECUTION' | 'CANCELED' | 'PENDING' | 'EXECUTED' | 'FAILED';
   payouts: Array<{
     id: string;
-    status: string;
+    createdAt: string;
+    updatedAt: string;
     amount: {
       tokenAmount: number;
       tokenSymbol: string;
     };
+    details: {
+      type: 'fiat' | 'blockchain';
+      // Fiat payout details
+      fiatAndRailCode?: string;
+      fiatPayoutStatus?: {
+        type: 'created' | 'pending' | 'on-hold' | 'completed' | 'failed' | 'canceled' | 'refundInProgress' | 'refunded';
+        initiatedAt?: string;
+        completedAt?: string;
+        failureReason?: string;
+        errorCode?: string;
+        refundInitiatedAt?: string;
+        refundCompletedAt?: string;
+        refundTransactionId?: string;
+      };
+      fiatAmount?: {
+        fiatAmount: number;
+        fiatCurrencyCode: string;
+      };
+      transactionFee?: {
+        tokenAmount: number;
+        tokenSymbol: string;
+      };
+      exchangeFeePercentage?: number;
+      exchangeRate?: number;
+      feeTotal?: {
+        tokenAmount: number;
+        tokenSymbol: string;
+      };
+      developerFee?: {
+        developerFeePercentage: number;
+      };
+      // Blockchain payout details
+      walletAddress?: string;
+      blockchain?: string;
+      status?: 'AWAITING_EXECUTION' | 'PENDING' | 'EXECUTED' | 'FAILED' | 'CANCELED';
+    };
     recipientInfo: {
-      type: string;
+      type: 'counterparty' | 'inline';
       counterpartyId?: string;
+      payoutMethodId?: string;
+      name?: string;
+      details?: {
+        type: 'fiat' | 'blockchain';
+        fiatCurrencyCode?: string;
+        bankName?: string;
+        truncatedBankAccountNumber?: string;
+        walletAddress?: string;
+        blockchain?: string;
+      };
     };
   }>;
 }
@@ -57,22 +107,45 @@ export interface MuralTransaction {
 async function muralRequest<T>(
   endpoint: string,
   options: RequestInit = {},
-  useTransferKey = false
+  useTransferKey = false,
+  includeTransferApiKeyHeader = false
 ): Promise<T> {
   const apiKey = useTransferKey ? MURAL_TRANSFER_API_KEY : MURAL_API_KEY;
 
+  // Validate API key is set
+  if (!apiKey) {
+    const keyType = useTransferKey ? 'MURAL_TRANSFER_API_KEY' : 'MURAL_API_KEY';
+    throw new Error(`${keyType} is not set. Please configure it in your environment variables.`);
+  }
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`,
+    ...(options.headers as Record<string, string>),
+  };
+
+  // Add transfer-api-key header if required (for execute endpoint)
+  if (includeTransferApiKeyHeader && useTransferKey) {
+    headers['transfer-api-key'] = MURAL_TRANSFER_API_KEY;
+  }
+
   const response = await fetch(`${MURAL_API_BASE_URL}${endpoint}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`Mural API error (${response.status}):`, errorText);
+    const errorDetails = {
+      status: response.status,
+      statusText: response.statusText,
+      endpoint,
+      error: errorText,
+      apiKeyType: useTransferKey ? 'MURAL_TRANSFER_API_KEY' : 'MURAL_API_KEY',
+      apiKeySet: !!apiKey,
+      apiKeyLength: apiKey.length,
+    };
+    console.error(`Mural API error:`, errorDetails);
     throw new Error(`Mural API error: ${response.status} - ${errorText}`);
   }
 
@@ -109,8 +182,15 @@ export async function createPayoutRequest(
   const counterpartyId = process.env.MURAL_COUNTERPARTY_ID;
   const payoutMethodId = process.env.MURAL_PAYOUT_METHOD_ID;
 
-  if (!accountId || !counterpartyId || !payoutMethodId) {
-    throw new Error('Mural payout configuration not complete');
+  // Validate all required configuration
+  const missing = [];
+  if (!accountId) missing.push('MURAL_ACCOUNT_ID');
+  if (!counterpartyId) missing.push('MURAL_COUNTERPARTY_ID');
+  if (!payoutMethodId) missing.push('MURAL_PAYOUT_METHOD_ID');
+  if (!MURAL_TRANSFER_API_KEY) missing.push('MURAL_TRANSFER_API_KEY');
+
+  if (missing.length > 0) {
+    throw new Error(`Mural payout configuration not complete. Missing environment variables: ${missing.join(', ')}. Please set these in Vercel environment variables.`);
   }
 
   const payload = {
@@ -145,13 +225,22 @@ export async function createPayoutRequest(
 }
 
 // Execute a payout request
-export async function executePayoutRequest(payoutRequestId: string): Promise<MuralPayoutRequest> {
+// exchangeRateToleranceMode: 'FLEXIBLE' (default) executes regardless of rate changes,
+// 'STRICT' fails if rates have changed since creation
+export async function executePayoutRequest(
+  payoutRequestId: string,
+  exchangeRateToleranceMode: 'FLEXIBLE' | 'STRICT' = 'FLEXIBLE'
+): Promise<MuralPayoutRequest> {
   return muralRequest<MuralPayoutRequest>(
     `/api/payouts/payout/${payoutRequestId}/execute`,
     {
       method: 'POST',
+      body: JSON.stringify({
+        exchangeRateToleranceMode,
+      }),
     },
-    true // Use transfer API key
+    true, // Use transfer API key
+    true // Include transfer-api-key header as required by API
   );
 }
 
@@ -178,65 +267,6 @@ export async function searchTransactions(
     {
       method: 'POST',
       body: JSON.stringify(filters || {}),
-    }
-  );
-}
-
-// Webhook configuration types
-export interface MuralWebhook {
-  id: string;
-  url: string;
-  status: 'ACTIVE' | 'DISABLED';
-  eventCategories: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface MuralWebhookList {
-  results: MuralWebhook[];
-}
-
-// List all webhooks
-export async function listWebhooks(): Promise<MuralWebhookList> {
-  return muralRequest<MuralWebhookList>('/api/webhooks');
-}
-
-// Get a specific webhook
-export async function getWebhook(webhookId: string): Promise<MuralWebhook> {
-  return muralRequest<MuralWebhook>(`/api/webhooks/${webhookId}`);
-}
-
-// Create a webhook
-export async function createWebhook(
-  url: string,
-  eventCategories: string[]
-): Promise<MuralWebhook> {
-  return muralRequest<MuralWebhook>(
-    '/api/webhooks',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        url,
-        eventCategories,
-      }),
-    }
-  );
-}
-
-// Update webhook (enable/disable or change URL)
-export async function updateWebhook(
-  webhookId: string,
-  updates: {
-    url?: string;
-    status?: 'ACTIVE' | 'DISABLED';
-    eventCategories?: string[];
-  }
-): Promise<MuralWebhook> {
-  return muralRequest<MuralWebhook>(
-    `/api/webhooks/${webhookId}`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify(updates),
     }
   );
 }

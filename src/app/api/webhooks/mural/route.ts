@@ -175,14 +175,46 @@ async function handlePayoutRequest(event: WebhookEvent) {
 
   const now = new Date();
 
-  // Map Mural status to our status
-  let newStatus = payout.status;
-  switch (status?.toLowerCase()) {
+  // Fetch latest payout details from MuralPay API to get exchange rate and COP amount
+  let exchangeRate = payout.exchangeRate;
+  let copAmount = payout.copAmount;
+  
+  try {
+    const { getPayoutRequest } = await import('@/lib/mural');
+    const payoutRequest = await getPayoutRequest(payoutRequestId);
+    
+    // Extract details from the first payout
+    const payoutDetails = payoutRequest.payouts?.[0];
+    const fiatPayout = payoutDetails?.details?.type === 'fiat' ? payoutDetails.details : null;
+    
+    if (fiatPayout) {
+      exchangeRate = fiatPayout.exchangeRate ? fiatPayout.exchangeRate.toString() : exchangeRate;
+      copAmount = fiatPayout.fiatAmount?.fiatCurrencyCode === 'COP' 
+        ? fiatPayout.fiatAmount.fiatAmount.toString() 
+        : copAmount;
+    }
+  } catch (error) {
+    console.error('Error fetching payout details from API:', error);
+    // Continue with status update even if we can't fetch details
+  }
+
+  // Map MuralPay API status to our internal status
+  // API statuses: AWAITING_EXECUTION, CANCELED, PENDING, EXECUTED, FAILED
+  // Fiat payout statuses: created, pending, on-hold, completed, canceled, refundInProgress, refunded
+  let newStatus: 'created' | 'pending' | 'executed' | 'completed' | 'failed' = payout.status as any;
+  
+  const statusLower = status?.toLowerCase() || '';
+  
+  switch (statusLower) {
+    case 'awaiting_execution':
+      newStatus = 'created';
+      break;
     case 'pending':
       newStatus = 'pending';
       break;
     case 'executed':
-    case 'in_progress':
+      // EXECUTED means blockchain transaction completed, but fiat payout may still be processing
+      // We'll check individual payout status via webhook payload if available
       newStatus = 'executed';
       break;
     case 'completed':
@@ -200,15 +232,28 @@ async function handlePayoutRequest(event: WebhookEvent) {
       break;
     case 'failed':
     case 'error':
+    case 'canceled':
       newStatus = 'failed';
       break;
+    default:
+      // Keep existing status if we don't recognize the new status
+      console.log('Unknown payout status:', status);
   }
 
   await db.update(payouts)
-    .set({ status: newStatus, updatedAt: now })
+    .set({ 
+      status: newStatus, 
+      exchangeRate,
+      copAmount,
+      updatedAt: now 
+    })
     .where(eq(payouts.id, payout.id));
 
-  console.log('Payout status updated:', payout.id, '->', newStatus);
+  console.log('Payout status updated:', payout.id, '->', newStatus, {
+    exchangeRate,
+    copAmount,
+    muralStatus: status,
+  });
 }
 
 async function initiatePayout(paymentId: string, usdcAmount: number, orderId: string) {
@@ -250,15 +295,59 @@ async function initiatePayout(paymentId: string, usdcAmount: number, orderId: st
     const executedPayout = await executePayoutRequest(payoutRequest.id);
     console.log('Payout executed:', executedPayout.status);
 
+    // Extract payout details from the first payout (we only create one)
+    const payoutDetails = executedPayout.payouts?.[0];
+    const fiatPayout = payoutDetails?.details?.type === 'fiat' ? payoutDetails.details : null;
+    
+    // Extract exchange rate, COP amount, and other details
+    const exchangeRate = fiatPayout?.exchangeRate;
+    const copAmount = fiatPayout?.fiatAmount?.fiatCurrencyCode === 'COP' 
+      ? fiatPayout.fiatAmount.fiatAmount 
+      : null;
+
+    // Map MuralPay status to our internal status
+    let payoutStatus: 'created' | 'pending' | 'executed' | 'completed' | 'failed' = 'executed';
+    if (executedPayout.status === 'EXECUTED') {
+      // Check individual payout status for more detail
+      if (fiatPayout?.fiatPayoutStatus?.type === 'completed') {
+        payoutStatus = 'completed';
+      } else if (fiatPayout?.fiatPayoutStatus?.type === 'pending' || fiatPayout?.fiatPayoutStatus?.type === 'on-hold') {
+        payoutStatus = 'pending';
+      } else {
+        payoutStatus = 'executed'; // Blockchain transaction executed, fiat payout may still be processing
+      }
+    } else if (executedPayout.status === 'FAILED') {
+      payoutStatus = 'failed';
+    } else if (executedPayout.status === 'PENDING') {
+      payoutStatus = 'pending';
+    }
+
     await db.update(payouts)
       .set({
-        status: 'executed',
+        status: payoutStatus,
+        exchangeRate: exchangeRate ? exchangeRate.toString() : null,
+        copAmount: copAmount ? copAmount.toString() : null,
         updatedAt: new Date(),
       })
       .where(eq(payouts.id, payoutId));
 
   } catch (error) {
-    console.error('Payout initiation failed:', error);
+    // Log detailed error information
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    const errorDetails = error instanceof Error && 'response' in error
+      ? JSON.stringify((error as any).response, null, 2)
+      : undefined;
+
+    console.error('Payout initiation failed:', {
+      message: errorMessage,
+      stack: errorStack,
+      details: errorDetails,
+      paymentId,
+      orderId,
+      usdcAmount,
+    });
+
     await db.update(payouts)
       .set({
         status: 'failed',
@@ -270,5 +359,8 @@ async function initiatePayout(paymentId: string, usdcAmount: number, orderId: st
     // Order should remain in 'payout_initiated' or 'paid' status
     // The merchant can retry the payout later
     console.log('Payout failed but payment was successful. Order remains in payout_initiated status.');
+
+    // Re-throw to ensure it's logged in Vercel function logs
+    throw error;
   }
 }

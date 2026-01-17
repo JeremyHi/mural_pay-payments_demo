@@ -1,9 +1,25 @@
 import { NextResponse } from 'next/server';
 import { listWebhooks, getWebhook } from '@/lib/mural';
 
+// Mark as dynamic to prevent static generation
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const webhooks = await listWebhooks();
+    
+    // Handle case where webhooks or results is undefined
+    if (!webhooks || !webhooks.results || !Array.isArray(webhooks.results)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid webhook response',
+        message: 'Failed to retrieve webhooks. Verify MURAL_API_KEY is set correctly.',
+        webhookCount: 0,
+        activeCount: 0,
+        webhooks: [],
+        recommendations: ['Unable to fetch webhooks. Check your API configuration.'],
+      }, { status: 500 });
+    }
     
     // Check each webhook for localhost/ngrok
     const webhookDetails = await Promise.all(

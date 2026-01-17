@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { Product } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
 
@@ -7,7 +8,7 @@ interface ProductCardProps {
   product: Product;
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
 
   const handleAddToCart = () => {
@@ -64,3 +65,5 @@ export default function ProductCard({ product }: ProductCardProps) {
     </div>
   );
 }
+
+export default React.memo(ProductCard);

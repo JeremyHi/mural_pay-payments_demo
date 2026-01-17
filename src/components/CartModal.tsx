@@ -1,7 +1,7 @@
 'use client';
 
 import { useCart } from '@/contexts/CartContext';
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 
 export default function CartModal() {
   const {
@@ -13,6 +13,27 @@ export default function CartModal() {
     setIsCartOpen,
     setIsCheckoutOpen,
   } = useCart();
+
+  const handleClose = useCallback(() => {
+    setIsCartOpen(false);
+  }, [setIsCartOpen]);
+
+  const handleCheckout = useCallback(() => {
+    setIsCartOpen(false);
+    setIsCheckoutOpen(true);
+  }, [setIsCartOpen, setIsCheckoutOpen]);
+
+  const handleDecreaseQuantity = useCallback((productId: string, currentQuantity: number) => {
+    updateQuantity(productId, currentQuantity - 1);
+  }, [updateQuantity]);
+
+  const handleIncreaseQuantity = useCallback((productId: string, currentQuantity: number) => {
+    updateQuantity(productId, currentQuantity + 1);
+  }, [updateQuantity]);
+
+  const handleRemoveItem = useCallback((productId: string) => {
+    removeItem(productId);
+  }, [removeItem]);
 
   // Close on escape key
   useEffect(() => {
@@ -33,17 +54,12 @@ export default function CartModal() {
 
   if (!isCartOpen) return null;
 
-  const handleCheckout = () => {
-    setIsCartOpen(false);
-    setIsCheckoutOpen(true);
-  };
-
   return (
     <div className="fixed inset-0 z-50">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={() => setIsCartOpen(false)}
+        onClick={handleClose}
       />
 
       {/* Modal */}
@@ -52,7 +68,7 @@ export default function CartModal() {
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-semibold text-gray-900">Your Cart</h2>
           <button
-            onClick={() => setIsCartOpen(false)}
+            onClick={handleClose}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
             aria-label="Close cart"
           >
@@ -80,7 +96,7 @@ export default function CartModal() {
               <span className="text-6xl mb-4">🛒</span>
               <p>Your cart is empty</p>
               <button
-                onClick={() => setIsCartOpen(false)}
+                onClick={handleClose}
                 className="mt-4 text-purple-600 hover:text-purple-700 font-medium"
               >
                 Continue Shopping
@@ -109,14 +125,14 @@ export default function CartModal() {
                   {/* Quantity controls */}
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                      onClick={() => handleDecreaseQuantity(item.product.id, item.quantity)}
                       className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-colors"
                     >
                       <span className="text-gray-600 font-bold">-</span>
                     </button>
                     <span className="w-8 text-center font-medium">{item.quantity}</span>
                     <button
-                      onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                      onClick={() => handleIncreaseQuantity(item.product.id, item.quantity)}
                       className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-colors"
                     >
                       <span className="text-gray-600 font-bold">+</span>
@@ -125,7 +141,7 @@ export default function CartModal() {
 
                   {/* Remove button */}
                   <button
-                    onClick={() => removeItem(item.product.id)}
+                    onClick={() => handleRemoveItem(item.product.id)}
                     className="p-2 text-gray-400 hover:text-red-500 transition-colors"
                     aria-label="Remove item"
                   >

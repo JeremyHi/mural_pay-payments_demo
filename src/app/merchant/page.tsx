@@ -1,7 +1,37 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { WithdrawalInfo } from '@/lib/types';
+
+// Helper functions moved outside component to prevent recreation on every render
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'completed':
+      return 'bg-green-100 text-green-800';
+    case 'executed':
+      return 'bg-blue-100 text-blue-800';
+    case 'pending':
+    case 'created':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'failed':
+      return 'bg-red-100 text-red-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleString();
+};
+
+const formatCOP = (amount: number | null) => {
+  if (amount === null) return '-';
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
 
 export default function MerchantDashboard() {
   const [withdrawals, setWithdrawals] = useState<WithdrawalInfo[]>([]);
@@ -34,46 +64,21 @@ export default function MerchantDashboard() {
     return () => clearInterval(interval);
   }, [fetchWithdrawals]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'executed':
-        return 'bg-blue-100 text-blue-800';
-      case 'pending':
-      case 'created':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'failed':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
-
-  const formatCOP = (amount: number | null) => {
-    if (amount === null) return '-';
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  // Calculate summary stats
-  const totalUsdcReceived = withdrawals.reduce(
-    (sum, w) => sum + w.usdcAmount,
-    0
+  // Memoize expensive calculations
+  const totalUsdcReceived = useMemo(
+    () => withdrawals.reduce((sum, w) => sum + w.usdcAmount, 0),
+    [withdrawals]
   );
-  const completedPayouts = withdrawals.filter(
-    (w) => w.status === 'completed'
-  ).length;
-  const pendingPayouts = withdrawals.filter(
-    (w) => ['pending', 'created', 'executed'].includes(w.status)
-  ).length;
+
+  const completedPayouts = useMemo(
+    () => withdrawals.filter((w) => w.status === 'completed').length,
+    [withdrawals]
+  );
+
+  const pendingPayouts = useMemo(
+    () => withdrawals.filter((w) => ['pending', 'created', 'executed'].includes(w.status)).length,
+    [withdrawals]
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">

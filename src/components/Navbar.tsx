@@ -2,9 +2,14 @@
 
 import Link from 'next/link';
 import { useCart } from '@/contexts/CartContext';
+import { useCallback } from 'react';
 
 export default function Navbar() {
   const { itemCount, setIsCartOpen } = useCart();
+
+  const handleOpenCart = useCallback(() => {
+    setIsCartOpen(true);
+  }, [setIsCartOpen]);
 
   return (
     <nav className="bg-gradient-to-r from-purple-900 via-purple-800 to-indigo-900 text-white shadow-lg">
@@ -34,7 +39,7 @@ export default function Navbar() {
 
           {/* Cart button */}
           <button
-            onClick={() => setIsCartOpen(true)}
+            onClick={handleOpenCart}
             className="relative p-2 rounded-full hover:bg-purple-700/50 transition-colors"
             aria-label="Open cart"
           >

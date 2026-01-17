@@ -108,6 +108,17 @@ export default function CheckoutModal() {
     }
   }, [walletAddress]);
 
+  const handleBackdropClick = useCallback(() => {
+    if (state !== 'awaiting_payment') {
+      handleClose();
+    }
+  }, [state, handleClose]);
+
+  const handleRetry = useCallback(() => {
+    setState('idle');
+    createCheckout();
+  }, [createCheckout]);
+
   // Close on escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -134,7 +145,7 @@ export default function CheckoutModal() {
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={() => state !== 'awaiting_payment' && handleClose()}
+        onClick={handleBackdropClick}
       />
 
       {/* Modal */}
@@ -187,10 +198,7 @@ export default function CheckoutModal() {
               </h3>
               <p className="text-gray-600 mb-6">{error}</p>
               <button
-                onClick={() => {
-                  setState('idle');
-                  createCheckout();
-                }}
+                onClick={handleRetry}
                 className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-colors"
               >
                 Try Again

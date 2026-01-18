@@ -2,6 +2,8 @@
 
 A demo e-commerce storefront that accepts USDC payments on Polygon via Mural Pay, with automatic conversion and withdrawal to Colombian Pesos (COP).
 
+🔗 **Live Demo**: [https://mural-pay-payments-demo.vercel.app](https://mural-pay-payments-demo.vercel.app)
+
 ## Features
 
 - Browse and purchase 8 different fortune cookie products
@@ -70,12 +72,12 @@ WEBHOOK_SECRET=your-webhook-secret
 WEBHOOK_PUBLIC_KEY=your-webhook-public-key
 ```
 
-5. Run the development server:
+6. Run the development server:
 ```bash
 npm run dev
 ```
 
-6. Open [http://localhost:3000](http://localhost:3000)
+7. Open [http://localhost:3000](http://localhost:3000)
 
 ## Project Structure
 
